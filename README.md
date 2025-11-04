@@ -5,11 +5,8 @@ Hi! I'm Maryna, a student who is enthusiastically exploring the world of DevOps.
 
 ## Goals
 - To gain a fundamental understanding of the full Software Development Life Cycle (SDLC).
-
 - To master key CI/CD tools for automating builds and deployments.
-
 - To find my first Trainee/Junior DevOps Engineer position to learn from experienced colleagues.
-
 - To deepen my knowledge of cloud technologies (like AWS or GCP) and containerization/
 
 ## Tech Stack
