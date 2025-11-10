@@ -1,0 +1,16 @@
+name: Notify Telegram on Pull Request
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram message
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot8519841811:AAEEf4Y2zQaAyPxl5n6ejVzN2EBUEafROQg/sendMessage" \
+          -d chat_id="-1003482256504" \
+          -d text="New Pull Request created by ${{ github.actor }} in *${{ github.repository }}* → ${{ github.event.pull_request.html_url }}" \
+          -d parse_mode="Markdown"
