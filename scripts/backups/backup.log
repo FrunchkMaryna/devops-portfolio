@@ -1,0 +1,6 @@
+[Mon, Nov 10, 2025  7:55:56 PM] Початок резервного копіювання...
+tar: Removing leading `/d/devops/devops-portfolio/scripts/..' from member names
+tar: Removing leading `/d/devops/devops-portfolio/scripts/../' from member names
+[Mon, Nov 10, 2025  7:55:57 PM] Архів створено.
+[Mon, Nov 10, 2025  7:55:57 PM] Видалено старі копії, якщо були.
+[Mon, Nov 10, 2025  7:55:57 PM] Резервне копіювання завершено.
