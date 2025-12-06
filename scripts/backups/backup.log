@@ -4,3 +4,15 @@ tar: Removing leading `/d/devops/devops-portfolio/scripts/../' from member names
 [Mon, Nov 10, 2025  7:55:57 PM] Архів створено.
 [Mon, Nov 10, 2025  7:55:57 PM] Видалено старі копії, якщо були.
 [Mon, Nov 10, 2025  7:55:57 PM] Резервне копіювання завершено.
+[Tue, Nov 11, 2025  6:34:32 PM] Початок резервного копіювання...
+tar: Removing leading `/d/devops/devops-portfolio/scripts/..' from member names
+tar: Removing leading `/d/devops/devops-portfolio/scripts/../' from member names
+[Tue, Nov 11, 2025  6:34:32 PM] Архів створено.
+[Tue, Nov 11, 2025  6:34:32 PM] Видалено старі копії, якщо були.
+[Tue, Nov 11, 2025  6:34:32 PM] Резервне копіювання завершено.
+[Tue, Nov 11, 2025  6:34:43 PM] Початок резервного копіювання...
+tar: Removing leading `/d/devops/devops-portfolio/scripts/..' from member names
+tar: Removing leading `/d/devops/devops-portfolio/scripts/../' from member names
+[Tue, Nov 11, 2025  6:34:43 PM] Архів створено.
+[Tue, Nov 11, 2025  6:34:43 PM] Видалено старі копії, якщо були.
+[Tue, Nov 11, 2025  6:34:43 PM] Резервне копіювання завершено.
