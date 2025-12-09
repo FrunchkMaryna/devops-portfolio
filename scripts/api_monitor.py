@@ -1,66 +1,94 @@
 #!/usr/bin/env python3
-import argparse, requests, time, json, csv, sys
+import argparse
+import json
+import csv
+import time
+import requests
 from datetime import datetime
+import os
 
-def send_telegram_alert(token, chat_id, message):
-    """Відправка повідомлення у Telegram."""
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = {"chat_id": chat_id, "text": message}
+def send_discord(webhook, content):
+    payload = {"content": content}
     try:
-        r = requests.post(url, data=data, timeout=5)
-        if r.status_code != 200:
-            print("Помилка при відправці Telegram alert:", r.text)
+        requests.post(webhook, json=payload, timeout=5)
     except Exception as e:
-        print("Не вдалося відправити Telegram alert:", e)
+        print("Discord notify failed:", e)
 
-def check_url(url, timeout=10):
-    """Перевірка доступності одного URL."""
+def send_slack(webhook, text):
+    payload = {"text": text}
+    try:
+        requests.post(webhook, json=payload, timeout=5)
+    except Exception as e:
+        print("Slack notify failed:", e)
+
+def check_endpoint(url, timeout=10):
     start = time.time()
     try:
         r = requests.get(url, timeout=timeout)
         elapsed = time.time() - start
-        return {"url": url, "status": r.status_code, "time": round(elapsed, 3)}
+        return {
+            "url": url,
+            "status_code": r.status_code,
+            "ok": r.ok,
+            "response_time": round(elapsed, 3),
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
     except Exception as e:
-        return {"url": url, "status": None, "time": None, "error": str(e)}
+        elapsed = time.time() - start
+        return {
+            "url": url,
+            "status_code": None,
+            "ok": False,
+            "error": str(e),
+            "response_time": round(elapsed, 3),
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
+def append_json(path, obj):
+    data = []
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+            except:
+                data = []
+    data.append(obj)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def append_csv(path, obj):
+    write_header = not os.path.exists(path)
+    with open(path, "a", newline='', encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if write_header:
+            writer.writerow(["timestamp","url","status_code","ok","response_time","error"])
+        writer.writerow([obj.get("timestamp"), obj.get("url"), obj.get("status_code"), obj.get("ok"), obj.get("response_time"), obj.get("error","")])
 
 def main():
-    parser = argparse.ArgumentParser(description="API availability monitor")
-    parser.add_argument("--endpoints", "-e", nargs="+", required=True, help="List of endpoints to check")
-    parser.add_argument("--outjson", default="api_results.json")
-    parser.add_argument("--outcsv", default="api_results.csv")
-    parser.add_argument("--token", help="Telegram bot token")
-    parser.add_argument("--chat", help="Telegram chat ID")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("urls", nargs="+", help="Endpoints to check")
+    parser.add_argument("--discord-webhook", default=os.environ.get("DISCORD_WEBHOOK"))
+    parser.add_argument("--slack-webhook", default=os.environ.get("SLACK_WEBHOOK"))
+    parser.add_argument("--json", default="api_results.json")
+    parser.add_argument("--csv", default="api_results.csv")
+    parser.add_argument("--timeout", type=int, default=10)
+    parser.add_argument("--alert-threshold", type=float, default=2.0, help="response time seconds to trigger alert")
     args = parser.parse_args()
 
-    results = []
-    for url in args.endpoints:
-        res = check_url(url)
-        results.append(res)
-        print(f"Checked {url}: {res['status']} ({res.get('time', '?')}s)")
-
-        # Якщо є помилка — сповіщаємо у Telegram
-        if (res.get("status") is None) or (res["status"] >= 400):
-            if args.token and args.chat:
-                msg = f"API ALERT:\nURL: {url}\nStatus: {res.get('status')}\nError: {res.get('error', 'N/A')}"
-                send_telegram_alert(args.token, args.chat, msg)
-
-    # Зберігаємо результати у JSON
-    with open(args.outjson, "w", encoding="utf-8") as f:
-        json.dump({"timestamp": datetime.utcnow().isoformat(), "results": results}, f, indent=2)
-
-    # Зберігаємо результати у CSV
-    with open(args.outcsv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["url", "status", "time", "error"])
-        writer.writeheader()
-        for r in results:
-            writer.writerow({
-                "url": r.get("url"),
-                "status": r.get("status"),
-                "time": r.get("time"),
-                "error": r.get("error", "")
-            })
-
-    print("Monitoring complete. Results saved:", args.outjson, args.outcsv)
+    for url in args.urls:
+        res = check_endpoint(url, timeout=args.timeout)
+        append_json(args.json, res)
+        append_csv(args.csv, res)
+        # Alert on failure or slow
+        if not res.get("ok") or (res.get("response_time") is not None and res["response_time"] > args.alert_threshold):
+            text = f"ALERT: {url} status={res.get('status_code')} ok={res.get('ok')} rt={res.get('response_time')}s"
+            if args.discord_webhook:
+                send_discord(args.discord_webhook, text)
+            if args.slack_webhook:
+                send_slack(args.slack_webhook, text)
+            print("Alert sent for", url)
+        else:
+            print("OK:", url, res["status_code"], res["response_time"])
 
 if __name__ == "__main__":
     main()

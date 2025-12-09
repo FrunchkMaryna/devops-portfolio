@@ -1,35 +1,55 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# Конфіг (краще зберігати як env змінні або в .env)
-TELEGRAM_TOKEN="${TELEGRAM_TOKEN:-}"
-TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
-CPU_THRESHOLD="${CPU_THRESHOLD:-85}"   # в процентах
-RAM_THRESHOLD="${RAM_THRESHOLD:-85}"
-DISK_THRESHOLD="${DISK_THRESHOLD:-90}"
-SLEEP_SECONDS="${SLEEP_SECONDS:-60}"   # інтервал в секундах, якщо хочеш цикл
+# Налаштування
+# Встановити DISCORD_WEBHOOK як змінну середовища:
+# export DISCORD_WEBHOOK="https://discord.com/api/webhooks/..."
+WEBHOOK="${DISCORD_WEBHOOK:-}"
+CPU_THRESHOLD="${1:-80}"   # відсотки
+MEM_THRESHOLD="${2:-80}"   # відсотки
+DISK_THRESHOLD="${3:-90}"  # відсотки for root /
 
-if [ -z "$TELEGRAM_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-  echo "ERROR: TELEGRAM_TOKEN або TELEGRAM_CHAT_ID не встановлені" >&2
+if [[ -z "$WEBHOOK" ]]; then
+  echo "ERROR: DISCORD_WEBHOOK not set"
   exit 1
 fi
 
-# отримати значення (краще запускати у Linux / WSL)
-CPU_USAGE=$(top -bn1 | awk '/Cpu\(s\)/{print 100 - $8}')
-RAM_USAGE=$(free | awk '/Mem/{printf("%.0f", $3/$2 * 100)}')
-DISK_USAGE=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
-
-ALERT=""
-[ "$(printf '%.0f' "$CPU_USAGE")" -ge "$CPU_THRESHOLD" ] && ALERT+="⚠️ CPU: ${CPU_USAGE}%\n"
-[ "$RAM_USAGE" -ge "$RAM_THRESHOLD" ] && ALERT+="⚠️ RAM: ${RAM_USAGE}%\n"
-[ "$DISK_USAGE" -ge "$DISK_THRESHOLD" ] && ALERT+="⚠️ DISK: ${DISK_USAGE}%\n"
-
-if [ -n "$ALERT" ]; then
-  TEXT="🚨 *System alert*\nRepository: $(basename "$(pwd)")\n$ALERT\nHost: $(hostname)\nTime: $(date -u +"%Y-%m-%d %H:%M:%SZ")"
-  curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-    -d chat_id="${TELEGRAM_CHAT_ID}" \
-    -d parse_mode=Markdown \
-    -d text="$TEXT" >/dev/null || echo "Failed to send telegram alert" >&2
+# Отримати CPU використання (використовує top)
+cpu_line=$(top -bn1 | grep "Cpu(s)" || true)
+# приклад: "Cpu(s):  5.6%us,  1.2%sy,  0.0%ni, 92.5%id, ..."
+cpu_idle=$(echo "$cpu_line" | awk -F'id,' '{ split($1,parts,","); print parts[length(parts)] }' 2>/dev/null || true)
+# Простіший роут: використовуємо mpstat якщо є
+if command -v mpstat >/dev/null 2>&1; then
+  cpu_idle=$(mpstat 1 1 | awk '/all/ {print 100-$12}')
 else
-  echo "System OK: CPU ${CPU_USAGE}% RAM ${RAM_USAGE}% DISK ${DISK_USAGE}%"
+  # спробуємо приблизний розрахунок:
+  cpu_idle=$(echo "$cpu_line" | awk -F',' '{ for(i=1;i<=NF;i++) if($i ~ /id/) {print $i} }' | awk '{print $1+0}' || echo 0)
+  cpu_idle=$(awk "BEGIN{print 100 - $cpu_idle}")
+fi
+cpu_usage=$(printf "%.0f" "$cpu_idle")
+
+# RAM (в відсотках)
+mem_used=$(free | awk '/Mem:/ {printf "%.0f", $3/$2 * 100}')
+
+# Disk usage root (в відсотках)
+disk_used=$(df -h / | awk 'NR==2 {gsub(/%/,"",$5); print $5}')
+
+# Формуємо повідомлення якщо поріг перевищено
+message=""
+if (( cpu_usage >= CPU_THRESHOLD )); then
+  message+="CPU usage high: ${cpu_usage}% (threshold ${CPU_THRESHOLD}%)\n"
+fi
+if (( mem_used >= MEM_THRESHOLD )); then
+  message+="Memory usage high: ${mem_used}% (threshold ${MEM_THRESHOLD}%)\n"
+fi
+if (( disk_used >= DISK_THRESHOLD )); then
+  message+="Disk usage high: ${disk_used}% (threshold ${DISK_THRESHOLD}%)\n"
+fi
+
+if [[ -n "$message" ]]; then
+  payload=$(jq -nc --arg content "$(printf "%s" "$message")" '{content: $content}')
+  curl -s -H "Content-Type: application/json" -X POST -d "$payload" "$WEBHOOK" >/dev/null || echo "Failed to send discord webhook"
+  echo "Alert sent: $(date) - $message"
+else
+  echo "OK: CPU ${cpu_usage}%, MEM ${mem_used}%, DISK ${disk_used}%"
 fi

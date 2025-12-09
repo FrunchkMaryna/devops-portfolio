@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+echo "Pre-push: running tests..."
+# Запустити unit tests
+if command -v pytest >/dev/null 2>&1; then
+  pytest -q || { echo "Tests failed"; exit 1; }
+fi
+# можна додати go test ./...
+if command -v go >/dev/null 2>&1; then
+  go test ./... || { echo "Go tests failed"; exit 1; }
+fi
+echo "Pre-push: tests passed."
+exit 0

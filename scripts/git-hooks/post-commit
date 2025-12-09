@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Після commit — робимо локальний backup (викликаємо backup.sh) — налаштуй шлях
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+"${REPO_ROOT}/scripts/backup.sh" "${REPO_ROOT}" "${REPO_ROOT}/scripts/backups" || echo "Backup failed"

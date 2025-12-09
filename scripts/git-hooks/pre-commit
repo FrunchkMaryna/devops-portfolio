@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Запускаємо linting для bash, python, go
+echo "Pre-commit: running linters..."
+
+# bashcheck (якщо є)
+if command -v shellcheck >/dev/null 2>&1; then
+  echo "Running shellcheck..."
+  shellcheck $(git diff --cached --name-only -- '*.sh') || true
+fi
+
+# python lint (flake8)
+if command -v flake8 >/dev/null 2>&1; then
+  PYFILES=$(git diff --cached --name-only -- '*.py')
+  if [[ -n "$PYFILES" ]]; then
+    flake8 $PYFILES || { echo "flake8 failed"; exit 1; }
+  fi
+fi
+
+# go fmt & vet
+if command -v go >/dev/null 2>&1; then
+  GOFILES=$(git diff --cached --name-only -- '*.go')
+  if [[ -n "$GOFILES" ]]; then
+    for f in $GOFILES; do
+      gofmt -w "$f"
+    done
+    # re-add formatted files
+    git add $GOFILES
+  fi
+fi
+
+echo "Pre-commit: done."
+exit 0
