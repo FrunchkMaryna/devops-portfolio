@@ -15,7 +15,7 @@ cd ../..
 
 ### Встановлення Git Hooks
 
-Запустіть скрипт для інтеграції робочих хуків (`pre-commit`, `pre-push`, `post-commit`) у ваш репозиторій:
+Запустіть скрипт для інтеграції робочих хуків (`pre-commit`, `pre-push`, `post-commit`) у репозиторій:
 
 ```bash
 bash scripts/install-hooks.sh
